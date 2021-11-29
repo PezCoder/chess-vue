@@ -1,0 +1,38 @@
+.square {
+    width: 100px;
+    height: 100px;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    position: relative;
+}
+
+/* Colors */
+.square.light {
+    background-color: #EEEFD3;
+}
+.square.dark {
+    background-color: #779756;
+}
+
+/* Highlights */
+.square.highlight::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #F7F769;
+    opacity: 0.8;
+    content: '';
+}
+
+.square .dot {
+    background-color: black;
+    opacity: 0.3;
+    border-radius: 100%;
+    width: 20px;
+    height: 20px;
+    content: '';
+    display: block;
+}
