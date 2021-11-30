@@ -5,22 +5,16 @@
   <title></title>
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="./square.css" />
+  <link rel="stylesheet" href="./board.css" />
 </head>
 <body>
   <main id="app" v-cloak class="app">
-    <Square color="dark">Pawn</Square>
-    <Square color="light">Pawn</Square>
-
-    <Square color="dark"><Dot></Dot></Square>
-    <Square color="light"><Dot></Dot></Square>
-
-    <Square color="dark" highlight="true">Pawn</Square>
-    <Square color="light" highlight="true"></Square>
-
+    <Board></Board>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
-  <script src="./dot.js"></script>
-  <script src="./square.js"></script>
+  <script src="./Dot.js"></script>
+  <script src="./Square.js"></script>
+  <script src="./Board.js"></script>
   <script src="./main.js"></script>
 </body>
 </html>
