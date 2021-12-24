@@ -1,6 +1,6 @@
 Vue.component('Square', {
-  props: ['color', 'highlight'],
-  template: `<article class="square" v-bind:class="[color, { highlight: !!highlight }]">
-    <slot></slot>
+  props: ['color', 'highlight', 'piece'],
+  template: `<article class="square" :class="[color, { highlight: !!highlight }]">
+    <img :src="piece" v-if="!!piece" class="piece" />
   </article>`
 });
