@@ -6,6 +6,11 @@ Vue.component('Board', {
       color: 'black',
       x: 3,
       y: 3,
+    }, {
+      type: 'queen',
+      color: 'black',
+      x: 3,
+      y: 4,
     }],
   }),
   // Index goes from 0 -> 63
@@ -18,7 +23,7 @@ Vue.component('Board', {
         :color="getSquareColor(index - 1)"
         :piece="getPiece(index - 1)"
         :highlight="getHighlight(index -1, selectedPiece)"
-        :dot="getDot(index - 1, moves)">
+        :dot="isValidMove(selectedPiece, index - 1)">
       </Square>
     </section>
   `,
@@ -52,24 +57,41 @@ Vue.component('Board', {
         'king': {
           'black': `./pieces/king-black.svg`,
         },
+
+        'queen': {
+          'black': `./pieces/queen-black.svg`,
+        },
       };
 
       return pieceToImage[piece.type][piece.color];
     },
 
-    getDot: function(index, moves) {
-      if (!moves) { return false; }
+    isValidMove: function(selectedPiece, index) {
+      if (!selectedPiece) {
+        return false;
+      }
 
-      const { x, y } = this.getPosition(index);
-      return moves.find(move => move[0] === x && move[1] === y);
-    },
+      const { x: squareX, y: squareY } = this.getPosition(index);
+      const { x, y, type, color } = selectedPiece;
 
-    movesForPiece: function({ x, y, type, color }) {
       const movesToFn = {
-        'king': () => [[x+1, y], [x-1, y], [x, y+1], [x, y-1]],
+        'king': () => {
+          const isOnLeftOrRight = Math.abs(squareX - x) === 1 && squareY === y;
+          const isOnUpOrDown = Math.abs(squareY - y) === 1 && squareX === x;
+
+          return isOnLeftOrRight || isOnUpOrDown;
+        },
+        'queen': () => {
+          const isHorizontalMove = squareY === y;
+          const isVerticalMove = squareX === x;
+          const isDiagonalMove = Math.abs(squareX - x) === Math.abs(squareY - y);
+
+          return isHorizontalMove || isVerticalMove || isDiagonalMove;
+        }
       };
 
-      return movesToFn[type](color);
+      const isNotSelf = !(x === squareX && y === squareY);
+      return isNotSelf && movesToFn[type](color);
     },
 
     setSelectedPiece: function(index) {
@@ -96,14 +118,4 @@ Vue.component('Board', {
       }
     }
   },
-
-  computed: {
-    moves: function() {
-      if (!this.selectedPiece) {
-        return;
-      }
-
-      return this.movesForPiece(this.selectedPiece);
-    }
-  }
 });

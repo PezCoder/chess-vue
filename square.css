@@ -39,4 +39,5 @@
     height: var(--dot-radius);
     content: '';
     display: block;
+    position: absolute;
 }
