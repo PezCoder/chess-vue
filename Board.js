@@ -1,20 +1,24 @@
 Vue.component('Board', {
   data: () => ({
+    selectedPiece: null,
     pieces: [{
       type: 'king',
       color: 'black',
       x: 3,
       y: 3,
-    }]
+    }],
   }),
   // Index goes from 0 -> 63
   template: `
     <section class="board">
       <Square
-        v-for="index in (8*8)"
-        :color="getSquareColor(index - 1)"
         :key="index"
-        :piece="getPiece(index - 1)">
+        v-for="index in (8*8)"
+        @click.native="setSelectedPiece(index -1)"
+        :color="getSquareColor(index - 1)"
+        :piece="getPiece(index - 1)"
+        :highlight="getHighlight(index -1, selectedPiece)"
+        :dot="getDot(index - 1, moves)">
       </Square>
     </section>
   `,
@@ -33,13 +37,13 @@ Vue.component('Board', {
       return isYEven ? 'dark' : 'light';
     },
 
-    getPieceOnPosition: function(x, y) {
+    getPieceOnPosition: function(index) {
+      const { x, y } = this.getPosition(index);
       return this.pieces.find(piece => piece.x === x && piece.y === y);
     },
 
     getPiece: function(index) {
-      const { x, y } = this.getPosition(index);
-      const piece = this.getPieceOnPosition(x, y);
+      const piece = this.getPieceOnPosition(index);
       if (!piece) {
         return;
       }
@@ -53,12 +57,53 @@ Vue.component('Board', {
       return pieceToImage[piece.type][piece.color];
     },
 
-    moves: function({ x, y, type, color }) {
+    getDot: function(index, moves) {
+      if (!moves) { return false; }
+
+      const { x, y } = this.getPosition(index);
+      return moves.find(move => move[0] === x && move[1] === y);
+    },
+
+    movesForPiece: function({ x, y, type, color }) {
       const movesToFn = {
         'king': () => [[x+1, y], [x-1, y], [x, y+1], [x, y-1]],
       };
 
-      return movesToFn(type)(color);
+      return movesToFn[type](color);
+    },
+
+    setSelectedPiece: function(index) {
+      const piece = this.getPieceOnPosition(index);
+      // Reset when clicked on a blank square or the same piece again
+      if (!piece || this.selectedPiece === piece) {
+        this.selectedPiece = null;
+        return;
+      }
+
+      // First time clicking on a piece or
+      // Clicked on another piece when one is already selected
+      this.selectedPiece = piece;
+    },
+
+    getHighlight: function(index, selectedPiece) {
+      if (!selectedPiece) {
+        return false;
+      }
+
+      const { x, y } = this.getPosition(index);
+      if (x === selectedPiece.x && y === selectedPiece.y) {
+        return true;
+      }
     }
   },
+
+  computed: {
+    moves: function() {
+      if (!this.selectedPiece) {
+        return;
+      }
+
+      return this.movesForPiece(this.selectedPiece);
+    }
+  }
 });

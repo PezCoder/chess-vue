@@ -1,3 +1,7 @@
+:root {
+    --dot-radius: 30px;
+}
+
 .square {
     width: 100px;
     height: 100px;
@@ -31,8 +35,8 @@
     background-color: black;
     opacity: 0.3;
     border-radius: 100%;
-    width: 20px;
-    height: 20px;
+    width: var(--dot-radius);
+    height: var(--dot-radius);
     content: '';
     display: block;
 }
