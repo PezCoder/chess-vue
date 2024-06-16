@@ -8,13 +8,43 @@ Vue.component('Board', {
     pieces: [{
       type: 'rook',
       color: 'black',
-      x: 6,
+      x: 0,
       y: 0,
+    }, {
+      type: 'rook',
+      color: 'white',
+      x: 0,
+      y: 7,
     }, {
       type: 'queen',
       color: 'white',
       x: 2,
       y: 0,
+    }, {
+      type: 'queen',
+      color: 'black',
+      x: 7,
+      y: 7,
+    }, {
+      type: 'king',
+      color: 'white',
+      x: 4,
+      y: 7,
+    }, {
+      type: 'king',
+      color: 'black',
+      x: 2,
+      y: 4,
+    }, {
+      type: 'pawn',
+      color: 'black',
+      x: 0,
+      y: 2,
+    }, {
+      type: 'pawn',
+      color: 'white',
+      x: 7,
+      y: 6,
     }],
   }),
   // Index goes from 0 -> 63
@@ -96,6 +126,8 @@ Vue.component('Board', {
     },
 
     // TODO: Remove this if not needed
+    // This was the older appraoch I tried where I loop through the board to figure out if for the selected piece the move is valid
+    // This currently makes it difficult to detect pieces obstructing
     isValidMove: function(selectedPiece, index) {
       if (!selectedPiece) {
         return false;
@@ -179,44 +211,116 @@ Vue.component('Board', {
       }
     },
 
-    traverseHorizontallyRight: function(position, fn, breakCondition = () => false) {
-      let { x, y } = position;
-      x++;
-      if (x >= BOARD_ROWS || breakCondition({ x, y })) {
-        return;
-      }
-
-      let newPosition = { x,y };
-      fn(newPosition);
-      this.traverseHorizontallyRight(newPosition, fn, breakCondition);
+    isOutOfBounds: function({ x, y }) {
+      return x < 0 || x >= BOARD_COLS || y < 0 || y >= BOARD_ROWS;
     },
 
-    traverseHorizontallyLeft: function(position, fn, breakCondition = () => false) {
-      let { x, y } = position;
-      x--;
-      if (x < 0 || breakCondition({ x, y })) {
+    traverse: function(position, newPositionFn, callback, breakingCondition = () => false) {
+      let newPosition = newPositionFn(position);
+      if (this.isOutOfBounds(newPosition)
+        || this.breakWhenPieceOnPosition(newPosition)
+        || breakingCondition(newPosition)) {
         return;
       }
 
-      let newPosition = { x,y };
-      fn(newPosition);
-      this.traverseHorizontallyLeft(newPosition, fn, breakCondition);
+      callback(newPosition);
+      this.traverse(newPosition, newPositionFn, callback, breakingCondition);
+    },
+
+    traverseDiagonally: function(position, fn) {
+      this.traverse(position, ({ x, y }) => ({ x: x + 1, y: y + 1 }), fn);
+      this.traverse(position, ({ x, y }) => ({ x: x - 1, y: y - 1 }), fn);
+      this.traverse(position, ({ x, y }) => ({ x: x - 1, y: y + 1 }), fn);
+      this.traverse(position, ({ x, y }) => ({ x: x + 1, y: y - 1 }), fn);
+    },
+
+    breakIfDistanceGreaterThan: function(oldPosition, newPosition, distance) {
+      return Math.abs(oldPosition.x - newPosition.x) > distance
+        || Math.abs(oldPosition.y - newPosition.y) > distance;
     },
 
     breakWhenPieceOnPosition: function(position) {
       return !!this.getPieceForPosition(position);
     },
 
-    traverseHorizontally: function(position, fn) {
-      this.traverseHorizontallyLeft(position, fn, this.breakWhenPieceOnPosition);
-      this.traverseHorizontallyRight(position, fn, this.breakWhenPieceOnPosition);
+    traverseHorizontally: function(position, fn, breakingCondition) {
+      this.traverse(position, ({ x, y }) => ({ x: x + 1, y }), fn, breakingCondition);
+      this.traverse(position, ({ x, y }) => ({ x: x - 1, y }), fn, breakingCondition);
+    },
+
+    traverseVerticallyDown: function(position, fn, breakingCondition) {
+      this.traverse(position, ({ x, y }) => ({ x, y: y + 1 }), fn, breakingCondition);
+    },
+
+    traverseVerticallyUp: function(position, fn, breakingCondition) {
+      this.traverse(position, ({ x, y }) => ({ x, y: y - 1 }), fn, breakingCondition);
+    },
+
+    traverseVertically: function(position, fn, breakingCondition) {
+      this.traverseVerticallyDown(position, fn, breakingCondition);
+      this.traverseVerticallyUp(position, fn, breakingCondition);
     },
 
     shouldDrawDot: function(index, dots) {
       const position = this.getPosition(index);
       return dots.some(({ x,y }) => position.x === x && position.y === y);
-    }
+    },
+
+    traverseByPiece: function(piece, fn) {
+      // TODO: Finish more piece types
+      switch(piece.type) {
+        case 'rook': {
+          this.traverseHorizontally(piece, fn);
+          this.traverseVertically(piece, fn);
+          break;
+        }
+
+        case 'bishop': {
+          this.traverseDiagonally(piece, fn);
+          break;
+        }
+
+        case 'queen': {
+          this.traverseByPiece({
+            ...piece,
+            type: 'rook',
+          }, fn);
+          this.traverseByPiece({
+            ...piece,
+            type: 'bishop',
+          }, fn);
+          break;
+        }
+
+        case 'king': {
+          this.traverseHorizontally(piece, fn, position => this.breakIfDistanceGreaterThan(piece, position, 1));
+          this.traverseVertically(piece, fn, position => this.breakIfDistanceGreaterThan(piece, position, 1));
+          break;
+        }
+
+        case 'pawn': {
+          if (piece.color === 'white') {
+            this.traverseVerticallyUp(piece, fn, position => this.breakIfDistanceGreaterThan(piece, position, 1));
+          } else {
+            this.traverseVerticallyDown(piece, fn, position => this.breakIfDistanceGreaterThan(piece, position, 1));
+          }
+
+          break;
+        }
+
+        case 'knight': {
+          if (piece.color === 'white') {
+            this.traverseVerticallyUp(piece, fn, position => this.breakIfDistanceGreaterThan(piece, position, 1));
+          } else {
+            this.traverseVerticallyDown(piece, fn, position => this.breakIfDistanceGreaterThan(piece, position, 1));
+          }
+
+          break;
+        }
+      }
+    },
   },
+
 
   /*
    * How to draw dots?
@@ -233,12 +337,7 @@ Vue.component('Board', {
         return data;
       }
 
-      this.traverseHorizontally(
-        this.selectedPiece,
-        position => {
-          data.push(position);
-        }
-      );
+      this.traverseByPiece(this.selectedPiece, position => data.push(position));
 
       return data;
     }
