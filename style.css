@@ -1,5 +1,9 @@
 [v-cloak] { display: none }
 
+* {
+    box-sizing: border-box;
+}
+
 .app {
     display: flex;
 }

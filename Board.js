@@ -11,48 +11,23 @@ Vue.component('Board', {
       x: 0,
       y: 0,
     }, {
-      type: 'rook',
-      color: 'white',
-      x: 0,
-      y: 7,
-    }, {
       type: 'queen',
       color: 'white',
       x: 2,
       y: 0,
-    }, {
-      type: 'queen',
-      color: 'black',
-      x: 7,
-      y: 7,
-    }, {
-      type: 'king',
-      color: 'white',
-      x: 4,
-      y: 7,
-    }, {
-      type: 'king',
-      color: 'black',
-      x: 2,
-      y: 4,
     }, {
       type: 'pawn',
       color: 'black',
       x: 0,
       y: 2,
     }, {
-      type: 'pawn',
-      color: 'white',
-      x: 7,
-      y: 6,
-    }, {
       type: 'knight',
       color: 'white',
       x: 2,
-      y: 7,
+      y: 4,
     }, {
       type: 'knight',
-      color: 'black',
+      color: 'white',
       x: 4,
       y: 3,
     }],
@@ -67,7 +42,7 @@ Vue.component('Board', {
         :color="getSquareColor(index - 1)"
         :piece="getPiece(index - 1)"
         :highlight="getHighlight(index -1, selectedPiece)"
-        :dot="shouldDrawDot(index - 1, dots)">
+        :shape="getShape(index - 1, moves)">
       </Square>
     </section>
   `,
@@ -171,18 +146,27 @@ Vue.component('Board', {
       shouldRecurse = true
     ) {
       let newPosition = newPositionFn(position);
+
+      console.log(newPosition, this.isMyPieceOnPosition(newPosition));
       if (this.isOutOfBounds(newPosition)
-        || this.breakWhenPieceOnPosition(newPosition)
+        // If it's my own piece, break immediately, if opponent piece callback should be called
+        || this.isMyPieceOnPosition(newPosition)
         || breakingCondition(newPosition)) {
         return;
       }
 
+      if (newPosition.x === 0 & newPosition.y === 2) {
+        console.log(newPosition);
+      }
       callback(newPosition);
-      if (shouldRecurse) {
+
+      // Traverse only if no piece on the way
+      if (shouldRecurse && !this.getPieceForPosition(newPosition)) {
         this.traverse(newPosition, newPositionFn, callback, breakingCondition);
       }
     },
 
+    // uses traverse but with no recursion since it's a jump
     jumpTo: function(piece, newPositionFn, fn) {
       this.traverse(
         piece,
@@ -205,8 +189,8 @@ Vue.component('Board', {
         || Math.abs(oldPosition.y - newPosition.y) > distance;
     },
 
-    breakWhenPieceOnPosition: function(position) {
-      return !!this.getPieceForPosition(position);
+    isMyPieceOnPosition: function(position) {
+      return this.getPieceForPosition(position)?.color === this.selectedPiece?.color;
     },
 
     traverseHorizontally: function(position, fn, breakingCondition) {
@@ -227,11 +211,28 @@ Vue.component('Board', {
       this.traverseVerticallyUp(position, fn, breakingCondition);
     },
 
-    shouldDrawDot: function(index, dots) {
-      const position = this.getPosition(index);
-      return dots.some(({ x,y }) => position.x === x && position.y === y);
+    isOpponentsPieceOnPosition: function(position) {
+      const pieceOnPosition = this.getPieceForPosition(position);
+      return pieceOnPosition && pieceOnPosition.color !== this.selectedPiece?.color;
     },
 
+    getShape: function(index, moves) {
+      const position = this.getPosition(index);
+      const canMove = moves.some(({ x,y }) => position.x === x && position.y === y);
+      if (!canMove) {
+        return null;
+      }
+
+      const canCapture = this.isOpponentsPieceOnPosition(position);
+      return canCapture ? 'circle' : 'dot';
+    },
+
+   /**
+     * Knight, King, Pawn - All valid except it's own piece is on the landing position
+     * Bishop - All valid till a piece is encountered diagonally
+     * Rook - All valid till a piece is encountered horizontall/vertically
+     * Queen - Bishop + rook
+     */
     traverseByPiece: function(piece, fn) {
       switch(piece.type) {
         case 'rook': {
@@ -294,23 +295,18 @@ Vue.component('Board', {
   },
 
 
-  /*
-   * How to draw dots?
-   * Knight, King, Pawn - All valid except it's own piece is on the landing position
-   * Bishop - All valid till a piece is encountered diagonally
-   * Rook - All valid till a piece is encountered horizontall/vertically
-   * Queen - Bishop + rook
-  */
   computed: {
-    dots: function() {
+    moves: function() {
       const data = [];
 
       if (!this.selectedPiece) {
         return data;
       }
 
-      this.traverseByPiece(this.selectedPiece, position => data.push(position));
-
+      this.traverseByPiece(
+        this.selectedPiece,
+        position => data.push(position)
+      );
       return data;
     }
   },
