@@ -45,6 +45,16 @@ Vue.component('Board', {
       color: 'white',
       x: 7,
       y: 6,
+    }, {
+      type: 'knight',
+      color: 'white',
+      x: 2,
+      y: 7,
+    }, {
+      type: 'knight',
+      color: 'black',
+      x: 4,
+      y: 3,
     }],
   }),
   // Index goes from 0 -> 63
@@ -125,68 +135,6 @@ Vue.component('Board', {
       return pieceToImage[piece.type][piece.color];
     },
 
-    // TODO: Remove this if not needed
-    // This was the older appraoch I tried where I loop through the board to figure out if for the selected piece the move is valid
-    // This currently makes it difficult to detect pieces obstructing
-    isValidMove: function(selectedPiece, index) {
-      if (!selectedPiece) {
-        return false;
-      }
-
-      const { x: squareX, y: squareY } = this.getPosition(index);
-      const { x, y, type, color } = selectedPiece;
-
-      const movesToFn = {
-        'king': () => {
-          const isOnLeftOrRight = Math.abs(squareX - x) === 1 && squareY === y;
-          const isOnUpOrDown = Math.abs(squareY - y) === 1 && squareX === x;
-
-          return isOnLeftOrRight || isOnUpOrDown;
-        },
-
-        'queen': function() {
-          return this.rook() || this.bishop();
-        },
-
-        'rook': () => {
-          const isHorizontalMove = squareY === y;
-          const isVerticalMove = squareX === x;
-
-          return isHorizontalMove || isVerticalMove;
-        },
-
-        'bishop': () => {
-          const isDiagonalMove = Math.abs(squareX - x) === Math.abs(squareY - y);
-
-          return isDiagonalMove;
-        },
-
-        'knight': () => {
-          const xDiff = Math.abs(squareX - x);
-          const yDiff = Math.abs(squareY - y);
-          const isMovingVertically = yDiff === 2 && xDiff === 1;
-          const isMovingHorizontally = xDiff === 2 && yDiff === 1;
-
-          return isMovingVertically || isMovingHorizontally;
-        },
-
-        'pawn': (color) => {
-          const sameX = squareX === x;
-          if (color === 'white') {
-            const movingUp = y - 1 === squareY;
-
-            return movingUp && sameX;
-          }
-
-          const movingDown = y + 1 === squareY;
-          return movingDown && sameX;
-        },
-      };
-
-      const isNotSelf = !(x === squareX && y === squareY);
-      return isNotSelf && movesToFn[type](color);
-    },
-
     setSelectedPiece: function(index) {
       const piece = this.getPieceForIndex(index);
       // Reset when clicked on a blank square or the same piece again
@@ -215,7 +163,13 @@ Vue.component('Board', {
       return x < 0 || x >= BOARD_COLS || y < 0 || y >= BOARD_ROWS;
     },
 
-    traverse: function(position, newPositionFn, callback, breakingCondition = () => false) {
+    traverse: function(
+      position,
+      newPositionFn,
+      callback,
+      breakingCondition = () => false,
+      shouldRecurse = true
+    ) {
       let newPosition = newPositionFn(position);
       if (this.isOutOfBounds(newPosition)
         || this.breakWhenPieceOnPosition(newPosition)
@@ -224,7 +178,19 @@ Vue.component('Board', {
       }
 
       callback(newPosition);
-      this.traverse(newPosition, newPositionFn, callback, breakingCondition);
+      if (shouldRecurse) {
+        this.traverse(newPosition, newPositionFn, callback, breakingCondition);
+      }
+    },
+
+    jumpTo: function(piece, newPositionFn, fn) {
+      this.traverse(
+        piece,
+        newPositionFn,
+        fn,
+        () => false,
+        false,
+      );
     },
 
     traverseDiagonally: function(position, fn) {
@@ -267,7 +233,6 @@ Vue.component('Board', {
     },
 
     traverseByPiece: function(piece, fn) {
-      // TODO: Finish more piece types
       switch(piece.type) {
         case 'rook': {
           this.traverseHorizontally(piece, fn);
@@ -298,6 +263,8 @@ Vue.component('Board', {
           break;
         }
 
+        // TODO: Pawn can also move 2 steps first move
+        // TODO: Pawn can also move diagonally to kill
         case 'pawn': {
           if (piece.color === 'white') {
             this.traverseVerticallyUp(piece, fn, position => this.breakIfDistanceGreaterThan(piece, position, 1));
@@ -309,12 +276,17 @@ Vue.component('Board', {
         }
 
         case 'knight': {
-          if (piece.color === 'white') {
-            this.traverseVerticallyUp(piece, fn, position => this.breakIfDistanceGreaterThan(piece, position, 1));
-          } else {
-            this.traverseVerticallyDown(piece, fn, position => this.breakIfDistanceGreaterThan(piece, position, 1));
-          }
-
+          const positionFns = [
+            ({ x,y }) => ({ x: x-2, y: y-1 }),
+            ({ x,y }) => ({ x: x-2, y: y+1 }),
+            ({ x,y }) => ({ x: x+2, y: y+1 }),
+            ({ x,y }) => ({ x: x+2, y: y-1 }),
+            ({ x,y }) => ({ x: x+1, y: y+2 }),
+            ({ x,y }) => ({ x: x-1, y: y+2 }),
+            ({ x,y }) => ({ x: x+1, y: y-2 }),
+            ({ x,y }) => ({ x: x-1, y: y-2 }),
+          ];
+          positionFns.forEach(positionFn => this.jumpTo(piece, positionFn, fn));
           break;
         }
       }
